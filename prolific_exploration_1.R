@@ -17,12 +17,23 @@ ratings_path <- "D:/PROJECT DATA/ratings_for_msc_students.csv"
 products <- read_tsv(file.path(data_path, products_path))
 product_ratings <- read_csv(ratings_path)
 
+glimpse(products)
+
 # Get 10 distinct product_group_descr with highest rating_avg
 product_ratings %>% 
   group_by(product_group_descr) %>% 
   summarise(rating_avg = mean(rating_avg, na.rm = TRUE)) %>% 
   arrange(desc(rating_avg)) %>% 
   head(11)
+
+# Get all distinct product_group_descr with their rating_avg
+category_ratings_unique <- product_ratings %>% 
+  group_by(product_group_descr) %>% 
+  summarise(rating_avg = mean(rating_avg, na.rm = TRUE)) %>% 
+  arrange(product_group_descr)
+
+# Save category_ratings_unique to csv
+write_csv(category_ratings_unique, "D:/PROJECT DATA/category_ratings_unique.csv")
 
 # Get 10 distinct product_group_descr with least rating_avg
 product_ratings %>% 
@@ -111,6 +122,7 @@ products <- products %>%
 ####### Purchases Exploration #############
 
 purchases <- read_tsv(file.path(data_path, purchases_path))
+glimpse(purchases)
 
 # Sort purchases by trip_code_uc and upc
 purchases <- purchases %>% 
@@ -142,11 +154,28 @@ purchases <- purchases %>%
 ####### Trips Dataset ############
 
 trips <- read_tsv(file.path(data_path, trips_path))
+glimpse(trips)
 
 # Check if there trips with duplicate trip_code_uc
 trips %>% 
   count(trip_code_uc) %>% 
   filter(n > 1)
+
+# Trips Dataset Summary
+
+# Get average number of trips per household, min and max number of trips
+trips %>% 
+  group_by(household_code) %>% 
+  summarise(n_trips = n()) %>% 
+  summarise(avg_trips = mean(n_trips), 
+            min_trips = min(n_trips), 
+            max_trips = max(n_trips))
+
+# Get average amount spent per trip, min and max amount spent
+trips %>%
+  summarise(avg_spent = mean(total_spent), 
+            min_spent = min(total_spent), 
+            max_spent = max(total_spent))
 
 # Join purchases with trips where trip_code_uc matches
 purchases <- purchases %>% 
@@ -195,6 +224,58 @@ conspicuous_consumption <- read_csv("D:/PROJECT DATA/household_conspicuous_consu
 ####### Panelists Dataset #############
 
 panelists <- read_tsv(file.path(data_path, panelists_path))
+glimpse(panelists)
+
+# Panelists Dataset Summary
+panelists_summary <- panelists %>% 
+  summarise(
+    min_household_income = min(Household_Income),
+    max_household_income = max(Household_Income),
+    mean_household_income = mean(Household_Income),
+    min_household_size = min(Household_Size),
+    max_household_size = max(Household_Size),
+    mean_household_size = mean(Household_Size),
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  )
+
+print(panelists_summary)
+
+# Count unique Panelist_ZipCd
+panelists %>% 
+  count(Panelist_ZipCd) %>% 
+  summarise(n_unique_zipcd = n())
+
+# Histogram of Household Income.
+# Define the breaks for the x-axis based on your specific income categories
+income_breaks <- c(3, 8, 19, 27) 
+
+labels <- c("3" = "Under $5000",
+            "8" = "$10,000-$11,999", 
+            "19" = "$45,000-$49,999", 
+            "27" = "$100,000+")
+
+panelists %>% 
+  ggplot(aes(x = Household_Income)) +
+  geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Household Income",
+       x = "Household Income",
+       y = "Frequency") +
+  scale_x_continuous(breaks = income_breaks, 
+                     labels = labels) +
+  theme_minimal()
+
+# Distribution of Household Income
+panelists %>% 
+  ggplot(aes(x = Household_Income)) +
+  geom_density(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Household Income",
+       x = "Household Income",
+       y = "Density") +
+  theme_minimal()
 
 # Join conspicuous_purchases_total with panelists
 conspicuous_consumption <- conspicuous_consumption %>% 
@@ -448,7 +529,8 @@ sim_slopes(model2, pred = Gini, modx = Household_Income_Rank)
 # Improve the interaction plot
 plot <- interact_plot(model2, pred = Gini, modx = Household_Income_Rank, 
                    int.width = 0.95, # Confidence interval width
-                   line.size = 1.2)    # Width of lines
+                   line.size = 1.2,
+                   interval = TRUE)    # Width of lines
 
 # Customize the plot
 plot + 
